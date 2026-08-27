@@ -89,6 +89,7 @@ tmp/
 dist
 .temp/
 deploy/selfhost/plane-app/
+plane-app/plane.env
 
 ## Storybook
 *storybook.log
@@ -117,3 +118,6 @@ packages/i18n/src/types/keys.generated.ts
 
 # Local security notes (not for version control)
 /security/
+
+## Backups
+/backups/
