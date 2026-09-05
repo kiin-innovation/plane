@@ -94,6 +94,9 @@ export const AuthenticationWrapper = observer(function AuthenticationWrapper(pro
         const currentRedirectRoute = getWorkspaceRedirectionUrl();
         router.push(currentRedirectRoute);
         return <></>;
+      } else if (nextPath?.startsWith("/workspace-invitations")) {
+        router.push(nextPath);
+        return <></>;
       } else {
         router.push("/onboarding");
         return <></>;

@@ -24,6 +24,7 @@ const authService = new AuthService();
 type TAuthUniqueCodeForm = {
   mode: EAuthModes;
   email: string;
+  initialCode?: string;
   isExistingEmail: boolean;
   handleEmailClear: () => void;
   generateEmailUniqueCode: (email: string) => Promise<{ code: string } | undefined>;
@@ -41,11 +42,15 @@ const defaultValues: TUniqueCodeFormValues = {
 };
 
 export function AuthUniqueCodeForm(props: TAuthUniqueCodeForm) {
-  const { mode, email, handleEmailClear, generateEmailUniqueCode, nextPath } = props;
+  const { mode, email, initialCode, handleEmailClear, generateEmailUniqueCode, nextPath } = props;
   // derived values
   const defaultResetTimerValue = 5;
   // states
-  const [uniqueCodeFormData, setUniqueCodeFormData] = useState<TUniqueCodeFormValues>({ ...defaultValues, email });
+  const [uniqueCodeFormData, setUniqueCodeFormData] = useState<TUniqueCodeFormValues>({
+    ...defaultValues,
+    email,
+    code: initialCode || "",
+  });
   const [isRequestingNewCode, setIsRequestingNewCode] = useState(false);
   const [csrfToken, setCsrfToken] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,10 +62,10 @@ export function AuthUniqueCodeForm(props: TAuthUniqueCodeForm) {
   const handleFormChange = (key: keyof TUniqueCodeFormValues, value: string) =>
     setUniqueCodeFormData((prev) => ({ ...prev, [key]: value }));
 
-  const generateNewCode = async (email: string) => {
+  const generateNewCode = async (newEmail: string) => {
     try {
       setIsRequestingNewCode(true);
-      const uniqueCode = await generateEmailUniqueCode(email);
+      const uniqueCode = await generateEmailUniqueCode(newEmail);
       setResendCodeTimer(defaultResetTimerValue);
       handleFormChange("code", uniqueCode?.code || "");
       setIsRequestingNewCode(false);
@@ -134,8 +139,7 @@ export function AuthUniqueCodeForm(props: TAuthUniqueCodeForm) {
           onChange={(e) => handleFormChange("code", e.target.value)}
           placeholder={t("auth.common.unique_code.placeholder")}
           className="h-10 w-full border border-strong !bg-surface-1 pr-12 disable-autofill-style placeholder:text-placeholder"
-          autoComplete="off"
-          autoFocus
+          autoComplete="one-time-code"
         />
         <div className="flex w-full items-center justify-between px-1 pt-1 text-11">
           <p className="flex items-center gap-1 font-medium text-success-primary">

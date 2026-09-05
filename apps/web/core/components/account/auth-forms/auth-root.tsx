@@ -39,12 +39,14 @@ export const AuthRoot = observer(function AuthRoot(props: TAuthRoot) {
   const invitation_id = searchParams.get("invitation_id");
   const workspaceSlug = searchParams.get("slug");
   const error_code = searchParams.get("error_code");
+  const codeParam = searchParams.get("code");
   // props
   const { authMode: currentAuthMode } = props;
   // states
   const [authMode, setAuthMode] = useState<EAuthModes | undefined>(undefined);
   const [authStep, setAuthStep] = useState<EAuthSteps>(EAuthSteps.EMAIL);
   const [email, setEmail] = useState(emailParam ? emailParam.toString() : "");
+  const [magicCode, setMagicCode] = useState(codeParam || undefined);
   const [errorInfo, setErrorInfo] = useState<TAuthErrorInfo | undefined>(undefined);
   // store hooks
   const { config } = useInstance();
@@ -57,6 +59,24 @@ export const AuthRoot = observer(function AuthRoot(props: TAuthRoot) {
   useEffect(() => {
     if (!authMode && currentAuthMode) setAuthMode(currentAuthMode);
   }, [currentAuthMode, authMode]);
+
+  useEffect(() => {
+    if (codeParam) {
+      setMagicCode(codeParam);
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      setMagicCode(hashParams.get("code") || undefined);
+    }
+  }, [codeParam]);
+
+  useEffect(() => {
+    if (authMode && emailParam && magicCode) {
+      setAuthStep(EAuthSteps.UNIQUE_CODE);
+    }
+  }, [authMode, emailParam, magicCode]);
 
   useEffect(() => {
     if (error_code && authMode) {
@@ -137,10 +157,11 @@ export const AuthRoot = observer(function AuthRoot(props: TAuthRoot) {
           authStep={authStep}
           authMode={authMode}
           email={email}
-          setEmail={(email) => setEmail(email)}
-          setAuthMode={(authMode) => setAuthMode(authMode)}
-          setAuthStep={(authStep) => setAuthStep(authStep)}
-          setErrorInfo={(errorInfo) => setErrorInfo(errorInfo)}
+          initialCode={magicCode}
+          setEmail={(nextEmail) => setEmail(nextEmail)}
+          setAuthMode={(nextAuthMode) => setAuthMode(nextAuthMode)}
+          setAuthStep={(nextAuthStep) => setAuthStep(nextAuthStep)}
+          setErrorInfo={(nextErrorInfo) => setErrorInfo(nextErrorInfo)}
           currentAuthMode={currentAuthMode}
         />
       )}

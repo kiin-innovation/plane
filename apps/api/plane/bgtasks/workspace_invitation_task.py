@@ -4,6 +4,7 @@
 
 # Python imports
 import logging
+from urllib.parse import urlencode
 
 # Third party imports
 from celery import shared_task
@@ -13,6 +14,8 @@ from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template.loader import render_to_string
 
 # Module imports
+from plane.authentication.adapter.error import AuthenticationException
+from plane.authentication.provider.credentials.magic_code import MagicCodeProvider
 from plane.db.models import User, Workspace, WorkspaceMemberInvite
 from plane.license.utils.instance_value import get_email_configuration
 from plane.utils.email import generate_plain_text_from_html
@@ -32,8 +35,34 @@ def workspace_invitation(email, workspace_id, token, current_site, inviter):
             f"/workspace-invitations/?invitation_id={workspace_member_invite.id}&slug={workspace.slug}&token={token}"  # noqa: E501
         )
 
+        # The invitation token authorizes accepting the workspace invitation after authentication.
+        # A separate magic code authenticates the invitee and is kept in Redis for the normal
+        # magic sign-in/sign-up endpoints to consume.
+        magic_code = None
+        try:
+            _, magic_code = MagicCodeProvider(request=None, key=email).initiate()
+        except AuthenticationException:
+            # Keep sending the regular invitation when magic-code login is unavailable.
+            logging.getLogger("plane.worker").warning(
+                "Magic-code login is unavailable for workspace invitation",
+                extra={"email": email, "workspace_id": workspace_id},
+            )
+
         # The complete url including the domain
         abs_url = str(current_site) + relative_link
+        if magic_code:
+            auth_path = "/" if User.objects.filter(email=email).exists() else "/sign-up"
+            auth_query = urlencode(
+                {
+                    "email": email,
+                    "invitation_id": workspace_member_invite.id,
+                    "slug": workspace.slug,
+                    "next_path": relative_link,
+                }
+            )
+            # Keep the code in the URL fragment so it can autofill in the browser without
+            # being sent in HTTP requests, access logs, or the Referer header.
+            abs_url = f"{current_site}{auth_path}?{auth_query}#code={magic_code}"
 
         (
             EMAIL_HOST,
@@ -53,6 +82,7 @@ def workspace_invitation(email, workspace_id, token, current_site, inviter):
             "first_name": user.first_name or user.display_name or user.email,
             "workspace_name": workspace.name,
             "abs_url": abs_url,
+            "magic_code": magic_code,
         }
 
         html_content = render_to_string("emails/invitations/workspace_invitation.html", context)

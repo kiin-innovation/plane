@@ -26,6 +26,7 @@ type TAuthFormRoot = {
   authStep: EAuthSteps;
   authMode: EAuthModes;
   email: string;
+  initialCode?: string;
   setEmail: (email: string) => void;
   setAuthMode: (authMode: EAuthModes) => void;
   setAuthStep: (authStep: EAuthSteps) => void;
@@ -36,7 +37,8 @@ type TAuthFormRoot = {
 const authService = new AuthService();
 
 export const AuthFormRoot = observer(function AuthFormRoot(props: TAuthFormRoot) {
-  const { authStep, authMode, email, setEmail, setAuthMode, setAuthStep, setErrorInfo, currentAuthMode } = props;
+  const { authStep, authMode, email, initialCode, setEmail, setAuthMode, setAuthStep, setErrorInfo, currentAuthMode } =
+    props;
   // router
   const router = useAppRouter();
   // query params
@@ -55,7 +57,7 @@ export const AuthFormRoot = observer(function AuthFormRoot(props: TAuthFormRoot)
     setErrorInfo(undefined);
     await authService
       .emailCheck(data)
-      .then(async (response) => {
+      .then((response) => {
         if (response.existing) {
           if (currentAuthMode === EAuthModes.SIGN_UP) setAuthMode(EAuthModes.SIGN_IN);
           if (response.status === "MAGIC_CODE") {
@@ -74,6 +76,7 @@ export const AuthFormRoot = observer(function AuthFormRoot(props: TAuthFormRoot)
           }
         }
         setIsExistingEmail(response.existing);
+        return response;
       })
       .catch((error) => {
         const errorhandler = authErrorHandler(error?.error_code?.toString(), data?.email || undefined);
@@ -90,9 +93,9 @@ export const AuthFormRoot = observer(function AuthFormRoot(props: TAuthFormRoot)
   };
 
   // generating the unique code
-  const generateEmailUniqueCode = async (email: string): Promise<{ code: string } | undefined> => {
+  const generateEmailUniqueCode = async (enteredEmail: string): Promise<{ code: string } | undefined> => {
     if (!isSMTPConfigured) return;
-    const payload = { email: email };
+    const payload = { email: enteredEmail };
     return await authService
       .generateUniqueCode(payload)
       .then(() => ({ code: "" }))
@@ -111,6 +114,7 @@ export const AuthFormRoot = observer(function AuthFormRoot(props: TAuthFormRoot)
       <AuthUniqueCodeForm
         mode={authMode}
         email={email}
+        initialCode={initialCode}
         isExistingEmail={isExistingEmail}
         handleEmailClear={handleEmailClear}
         generateEmailUniqueCode={generateEmailUniqueCode}
